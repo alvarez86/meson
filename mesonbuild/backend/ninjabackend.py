@@ -512,6 +512,30 @@ int dummy;
             self.add_build_comment(NinjaComment('Build rules for targets'))
             for t in ProgressBar(self.build.get_targets().values(), desc='Generating targets'):
                 self.generate_target(t)
+
+            self.add_build_comment(NinjaComment('Build rules for directories'))
+            dir_targets = {}
+            for t in self.build.get_targets().values():
+                if isinstance(t, build.CustomTarget):
+                    continue
+                if isinstance(t, build.RunTarget):
+                    continue
+                (head, tail) = os.path.split(self.get_target_filename(t))
+                while head != '':
+                    subdir_rule = os.path.join(head, "all")
+                    if subdir_rule not in dir_targets:
+                        dir_targets[subdir_rule] = set()
+                    if (t.get_filename() == tail):
+                        output = self.get_target_filename(t)
+                    else:
+                        output = os.path.join(head, tail, "all")
+                    dir_targets[subdir_rule].add(output)
+                    (head, tail) = os.path.split(head)
+
+            for subdir_rule in dir_targets.keys():
+                elem = NinjaBuildElement(self.all_outputs, subdir_rule, 'phony', dir_targets[subdir_rule])
+                self.add_build(elem)
+
             self.add_build_comment(NinjaComment('Test rules'))
             self.generate_tests()
             self.add_build_comment(NinjaComment('Install rules'))
